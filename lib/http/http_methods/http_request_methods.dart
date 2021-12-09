@@ -1,6 +1,4 @@
 /// Classe base para métodos HTTP.
-///
-/// É utilizado pela classe [HttpRequestHandlerImpl].
 abstract class HttpRequestMethods {
   Future post({required String uri, Map? headers, Map? body});
 
