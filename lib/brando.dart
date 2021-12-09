@@ -1,8 +1,10 @@
 library brando;
 
 import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
 
+import 'package:brando/http/exceptions/exceptions.dart';
 import 'package:dio/dio.dart';
 
 import 'http/http_handler_sb.dart';
@@ -24,7 +26,7 @@ const _defaultTimeOutDuration = Duration(seconds: 120);
 /// Esta classe espera um instância do [Dio]. [Brando] então realiza requisições HTTP em Dart.
 ///
 /// Brando necessita um `access_token`, válido e autenticado.
-/// Este token é fornecido pela aplicação anfitriã ou HostApp para módulo.
+/// Este token é fornecido pela aplicação anfitriã ou HostApp para o módulo.
 class Brando {
   final Dio dio;
   final Map _brandoHeaders = {
@@ -34,6 +36,12 @@ class Brando {
   };
   late final HttpRequestMethods _httpRequestMethods;
 
+  final Future<String> onUnauthorized;
+
+  Map get headers => _brandoHeaders;
+
+  set _accessToken(String token) => _brandoHeaders[accessTokenKey] = token;
+
   /// Assistente de requições HTTP autenticadas utilizando [Dio] como `Client`
   /// de requisições HTTP.
   ///
@@ -42,13 +50,9 @@ class Brando {
   ///
   /// * [httpRequestMethods] Implementação dos métodos de requisição HTTP.
   /// * [Dio] Cliente HTTP para Dart.
-  Brando(this.dio) {
+  Brando(this.dio, {required this.onUnauthorized}) {
     _httpRequestMethods = DioHttpRequestMethodsImpl(dio);
   }
-
-  set accessToken(String token) => _brandoHeaders[accessTokenKey] = token;
-
-  Map get headers => _brandoHeaders;
 
   /// Açúcar sintático para requisições HTTP.
   Future request({
@@ -66,29 +70,65 @@ class Brando {
       _brandoHeaders.addAll(headers);
     }
 
-    switch (httpVerbs) {
-      case HttpVerbs.post:
-        return await _httpRequestMethods
-            .post(uri: uri, body: body, headers: headers)
-            .timeout(_defaultTimeOutDuration,
-                onTimeout: () => throw TimeoutException("message"));
-      case HttpVerbs.get:
-        return await _httpRequestMethods
-            .get(uri: uri, headers: _brandoHeaders)
-            .timeout(_defaultTimeOutDuration,
-                onTimeout: () =>
-                    throw TimeoutException("message from interactor"));
-      case HttpVerbs.put:
-        return await _httpRequestMethods.put(
-            uri: uri, headers: headers, body: body);
-      case HttpVerbs.delete:
-        return await _httpRequestMethods.delete(
-            uri: uri, headers: _brandoHeaders);
-      case HttpVerbs.options:
-        return await _httpRequestMethods.options(
-            uri: uri, headers: _brandoHeaders);
-      default:
-        throw UnimplementedError();
+    return _attempt(
+      httpVerbs: httpVerbs,
+      uri: uri,
+      body: body,
+      headers: headers,
+    );
+  }
+
+  Future _attempt({
+    required HttpVerbs httpVerbs,
+    required String uri,
+    dynamic body,
+    Map? headers,
+    bool retryRequestAttempt = true,
+  }) async {
+    dynamic _retryOnUnauthorized(UnauthorizedException onError) async {
+      _accessToken = await onUnauthorized;
+      if (retryRequestAttempt) {
+        return await _attempt(
+          httpVerbs: httpVerbs,
+          uri: uri,
+          body: body,
+          headers: _brandoHeaders,
+          retryRequestAttempt: false,
+        );
+      }
+    }
+
+    try {
+      switch (httpVerbs) {
+        case HttpVerbs.post:
+          return await _httpRequestMethods
+              .post(uri: uri, body: body, headers: _brandoHeaders)
+              .timeout(_defaultTimeOutDuration,
+                  onTimeout: () => throw TimeoutException("message"));
+        case HttpVerbs.get:
+          return await _httpRequestMethods
+              .get(uri: uri, headers: _brandoHeaders)
+              .timeout(_defaultTimeOutDuration,
+                  onTimeout: () =>
+                      throw TimeoutException("message from interactor"));
+        case HttpVerbs.put:
+          return await _httpRequestMethods.put(
+              uri: uri, headers: headers, body: body);
+        case HttpVerbs.delete:
+          return await _httpRequestMethods.delete(
+              uri: uri, headers: _brandoHeaders);
+        case HttpVerbs.options:
+          return await _httpRequestMethods.options(
+              uri: uri, headers: _brandoHeaders);
+        default:
+          throw UnimplementedError();
+      }
+    } catch (e, s) {
+      if (e is UnauthorizedException) {
+        _retryOnUnauthorized(e);
+      }
+      log(e.toString(), stackTrace: s);
+      rethrow;
     }
   }
 }

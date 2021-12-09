@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer';
-import 'dart:io';
 
 import 'package:brando/http/exceptions/exceptions.dart';
 import 'package:brando/http/http_methods/http_request_methods.dart';
+import 'package:brando/http/http_responses.dart';
 import 'package:dio/dio.dart';
 
 class DioHttpRequestMethodsImpl implements HttpRequestMethods {
@@ -29,11 +28,11 @@ class DioHttpRequestMethodsImpl implements HttpRequestMethods {
     late final Response _response;
     try {
       _response = await _dio.get(uri);
+      return HttpResponses.getJsonOrThrowException(_response);
     } catch (e, s) {
       log("get", error: e, stackTrace: s);
-      throw Exception(e);
+      rethrow;
     }
-    return _response;
   }
 
   @override
@@ -44,6 +43,7 @@ class DioHttpRequestMethodsImpl implements HttpRequestMethods {
 
   @override
   Future post({required String uri, Map? headers, Map? body}) {
+    throw UnauthorizedException();
     // TODO: implement post
     throw UnimplementedError();
   }
@@ -54,5 +54,3 @@ class DioHttpRequestMethodsImpl implements HttpRequestMethods {
     throw UnimplementedError();
   }
 }
-
-
