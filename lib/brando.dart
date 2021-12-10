@@ -21,14 +21,19 @@ const String applicationJson = "application/json";
 // Default values
 const _defaultTimeOutDuration = Duration(seconds: 120);
 
-/// Brando é um assistente de requisições autenticadas para um módulo Flutter.
+/// [Brando] é um assistente de requisições autenticadas para um módulo Flutter.
 ///
 /// Esta classe espera um instância do [Dio]. [Brando] então realiza requisições HTTP em Dart.
+///
+/// [Brando] realizará uma nova requisição automáticamente em caso de falha
+/// com [UnauthorizedException], na primeira falha é executado o [onUnauthorized]
+/// para solicitação de novo [access_token] e então é feita a requisição adicional.
+/// Caso exceção persistir a mesma será lançada.
 ///
 /// Brando necessita um `access_token`, válido e autenticado.
 /// Este token é fornecido pela aplicação anfitriã ou HostApp para o módulo.
 class Brando {
-  final Dio dio;
+  final Dio _dio;
   final Map _brandoHeaders = {
     accessTokenKey: noTokenValue,
     HttpHeaders.contentTypeHeader: applicationJson,
@@ -36,7 +41,7 @@ class Brando {
   };
   late final HttpRequestMethods _httpRequestMethods;
 
-  final Future<String> onUnauthorized;
+  late final Future<String> _fetchToken;
 
   Map get headers => _brandoHeaders;
 
@@ -48,24 +53,23 @@ class Brando {
   /// Provê açúcar sintático (Syntax Sugar) para utilização de métodos para
   /// requisições HTTP. Verifique [httpRequestMethods].
   ///
-  /// * [httpRequestMethods] Implementação dos métodos de requisição HTTP.
+  /// * [onUnauthorized] função que contém implementação do [Pigeon], mensagem que retorna
+  /// [access_token].
+  ///
   /// * [Dio] Cliente HTTP para Dart.
-  Brando(this.dio, {required this.onUnauthorized}) {
-    _httpRequestMethods = DioHttpRequestMethodsImpl(dio);
+  Brando(this._dio, {required Future<String> onUnauthorized}) {
+    _httpRequestMethods = DioHttpRequestMethodsImpl(_dio);
+    _fetchToken = onUnauthorized;
   }
 
   /// Açúcar sintático para requisições HTTP.
+  /// * [HttpVerbs] Verbos de métodos de requisição HTTP.
   Future request({
     required HttpVerbs httpVerbs,
     required String uri,
     dynamic body,
     Map? headers,
   }) async {
-    assert(
-        _brandoHeaders[accessTokenKey] == noTokenValue ||
-            _brandoHeaders[accessTokenKey]!.isNotEmpty,
-        "The access_token can not be empty or null");
-
     if (headers != null) {
       _brandoHeaders.addAll(headers);
     }
@@ -86,7 +90,7 @@ class Brando {
     bool retryRequestAttempt = true,
   }) async {
     dynamic _retryOnUnauthorized(UnauthorizedException onError) async {
-      _accessToken = await onUnauthorized;
+      _accessToken = await _fetchToken;
       if (retryRequestAttempt) {
         return await _attempt(
           httpVerbs: httpVerbs,
