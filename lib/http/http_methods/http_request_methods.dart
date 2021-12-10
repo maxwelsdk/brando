@@ -1,5 +1,6 @@
+part of brando;
 /// Classe base para métodos HTTP.
-abstract class HttpRequestMethods {
+abstract class _HttpRequestMethods {
   Future post(
       {required String uri, Map<String, dynamic>? headers, dynamic body});
 

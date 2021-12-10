@@ -4,11 +4,13 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 
-import 'package:brando/http/clients/dio_http_request_methods_impl.dart';
 import 'package:brando/http/enum/http_verbs.dart';
 import 'package:brando/http/exceptions/exceptions.dart';
-import 'package:brando/http/http_methods/http_request_methods.dart';
+import 'package:brando/http/http_responses.dart';
 import 'package:dio/dio.dart';
+
+part '/http/clients/dio_http_request_methods_impl.dart';
+part '/http/http_methods/http_request_methods.dart';
 
 // Headers Key's
 const accessTokenKey = "access_token";
@@ -40,7 +42,7 @@ class Brando {
     HttpHeaders.contentTypeHeader: applicationJson,
     HttpHeaders.acceptHeader: applicationJson,
   };
-  late final HttpRequestMethods _httpRequestMethods;
+  late final _HttpRequestMethods _httpRequestMethods;
 
   late final Future<String> _fetchToken;
 
@@ -59,7 +61,7 @@ class Brando {
   ///
   /// * [Dio] Cliente HTTP para Dart.
   Brando(this._dio, {required Future<String> onUnauthorized}) {
-    _httpRequestMethods = DioHttpRequestMethodsImpl(_dio);
+    _httpRequestMethods = _DioHttpRequestMethodsImpl(_dio);
     _fetchToken = onUnauthorized;
   }
 

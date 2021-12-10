@@ -1,14 +1,9 @@
-import 'dart:async';
-import 'dart:developer';
+part of brando;
 
-import 'package:brando/http/http_methods/http_request_methods.dart';
-import 'package:brando/http/http_responses.dart';
-import 'package:dio/dio.dart';
-
-class DioHttpRequestMethodsImpl implements HttpRequestMethods {
+class _DioHttpRequestMethodsImpl implements _HttpRequestMethods {
   late final Dio _dio;
 
-  DioHttpRequestMethodsImpl(this._dio);
+  _DioHttpRequestMethodsImpl(this._dio);
 
   @override
   Future delete({
