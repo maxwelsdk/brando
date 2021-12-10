@@ -1,6 +1,6 @@
 
 import 'package:brando/brando.dart';
-import 'package:brando/http/http_handler_sb.dart';
+import 'package:brando/http/enum/http_verbs.dart';
 import 'package:brando/http/http_responses.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,9 +15,10 @@ void main() {
             httpVerbs: HttpVerbs.get,
             uri: "https://www.omdbapi.com/?s=Batman&apiKey=ec6cf447")
         .then((value) {
-      for (var movie in value['Search']) {
-        print(Movie.fromJson(movie));
-      }
+          print(value);
+      // for (var movie in value['Search']) {
+      //   print(Movie.fromJson(movie));
+      // }
     });
   });
 

@@ -4,10 +4,11 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:brando/http/clients/dio_http_request_methods_impl.dart';
+import 'package:brando/http/enum/http_verbs.dart';
 import 'package:brando/http/exceptions/exceptions.dart';
+import 'package:brando/http/http_methods/http_request_methods.dart';
 import 'package:dio/dio.dart';
-
-import 'http/http_handler_sb.dart';
 
 // Headers Key's
 const accessTokenKey = "access_token";
@@ -113,7 +114,10 @@ class Brando {
                   onTimeout: () => throw TimeoutException("message"));
         case HttpVerbs.get:
           return await _httpRequestMethods
-              .get(uri: uri, headers: _brandoHeaders, queryParameters: queryParameters)
+              .get(
+                  uri: uri,
+                  headers: _brandoHeaders,
+                  queryParameters: queryParameters)
               .timeout(_defaultTimeOutDuration,
                   onTimeout: () =>
                       throw TimeoutException("message from interactor"));
