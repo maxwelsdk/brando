@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
 
-import 'package:brando/http/exceptions/exceptions.dart';
 import 'package:brando/http/http_methods/http_request_methods.dart';
 import 'package:brando/http/http_responses.dart';
 import 'package:dio/dio.dart';
@@ -12,22 +11,27 @@ class DioHttpRequestMethodsImpl implements HttpRequestMethods {
   DioHttpRequestMethodsImpl(this._dio);
 
   @override
-  Future delete({required String uri, Map? headers}) async {
-    late final Response _response;
+  Future delete({
+    required String uri,
+    Map<String, dynamic>? headers,
+  }) async {
     try {
-      _response = await _dio.delete(uri);
+      return await _dio.delete(uri, options: Options(headers: headers));
     } catch (e, s) {
       log("delete", error: e, stackTrace: s);
-      throw Exception(e);
+      rethrow;
     }
-    return _response;
   }
 
   @override
-  Future get({required String uri, Map? headers}) async {
-    late final Response _response;
+  Future get({
+    required String uri,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? queryParameters,
+  }) async {
     try {
-      _response = await _dio.get(uri);
+      final Response _response =
+          await _dio.get(uri, options: Options(headers: headers));
       return HttpResponses.getJsonOrThrowException(_response);
     } catch (e, s) {
       log("get", error: e, stackTrace: s);
@@ -36,21 +40,32 @@ class DioHttpRequestMethodsImpl implements HttpRequestMethods {
   }
 
   @override
-  Future options({required String uri, Map? headers}) {
-    // TODO: implement options
-    throw UnimplementedError();
+  Future post(
+      {required String uri,
+      Map<String, dynamic>? headers,
+      dynamic body}) async {
+    try {
+      final Response _response =
+          await _dio.post(uri, options: Options(headers: headers), data: body);
+      return HttpResponses.getJsonOrThrowException(_response);
+    } catch (e, s) {
+      log("post", error: e, stackTrace: s);
+      rethrow;
+    }
   }
 
   @override
-  Future post({required String uri, Map? headers, Map? body}) {
-    throw UnauthorizedException();
-    // TODO: implement post
-    throw UnimplementedError();
-  }
-
-  @override
-  Future put({required String uri, Map? headers, Map? body}) {
-    // TODO: implement put
-    throw UnimplementedError();
+  Future put(
+      {required String uri,
+      Map<String, dynamic>? headers,
+      dynamic body}) async {
+    try {
+      final Response _response =
+          await _dio.put(uri, options: Options(headers: headers), data: body);
+      return HttpResponses.getJsonOrThrowException(_response);
+    } catch (e, s) {
+      log("put", error: e, stackTrace: s);
+      rethrow;
+    }
   }
 }

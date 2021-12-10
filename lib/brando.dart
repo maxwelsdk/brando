@@ -34,7 +34,7 @@ const _defaultTimeOutDuration = Duration(seconds: 120);
 /// Este token é fornecido pela aplicação anfitriã ou HostApp para o módulo.
 class Brando {
   final Dio _dio;
-  final Map _brandoHeaders = {
+  final Map<String, dynamic> _brandoHeaders = {
     accessTokenKey: noTokenValue,
     HttpHeaders.contentTypeHeader: applicationJson,
     HttpHeaders.acceptHeader: applicationJson,
@@ -68,7 +68,7 @@ class Brando {
     required HttpVerbs httpVerbs,
     required String uri,
     dynamic body,
-    Map? headers,
+    Map<String, dynamic>? headers,
   }) async {
     if (headers != null) {
       _brandoHeaders.addAll(headers);
@@ -117,12 +117,9 @@ class Brando {
                       throw TimeoutException("message from interactor"));
         case HttpVerbs.put:
           return await _httpRequestMethods.put(
-              uri: uri, headers: headers, body: body);
+              uri: uri, headers: _brandoHeaders, body: body);
         case HttpVerbs.delete:
           return await _httpRequestMethods.delete(
-              uri: uri, headers: _brandoHeaders);
-        case HttpVerbs.options:
-          return await _httpRequestMethods.options(
               uri: uri, headers: _brandoHeaders);
         default:
           throw UnimplementedError();
