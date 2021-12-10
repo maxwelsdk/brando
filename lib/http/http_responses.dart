@@ -1,15 +1,14 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:brando/http/exceptions/exceptions.dart';
 import 'package:dio/dio.dart';
 
 class HttpResponses {
-  static Future<dynamic> getJsonOrThrowException(Response response) {
+  static dynamic getJsonOrThrowException(Response response) {
     switch (response.statusCode) {
       case HttpStatus.ok:
       case HttpStatus.created:
-        return jsonDecode(response.data);
+        return response.data;
       case HttpStatus.unauthorized:
         throw UnauthorizedException();
       case HttpStatus.notFound:

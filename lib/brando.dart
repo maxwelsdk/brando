@@ -69,6 +69,7 @@ class Brando {
     required String uri,
     dynamic body,
     Map<String, dynamic>? headers,
+    Map<String, dynamic>? queryParameters,
   }) async {
     if (headers != null) {
       _brandoHeaders.addAll(headers);
@@ -86,7 +87,8 @@ class Brando {
     required HttpVerbs httpVerbs,
     required String uri,
     dynamic body,
-    Map? headers,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? queryParameters,
     bool retryRequestAttempt = true,
   }) async {
     dynamic _retryOnUnauthorized(UnauthorizedException onError) async {
@@ -111,7 +113,7 @@ class Brando {
                   onTimeout: () => throw TimeoutException("message"));
         case HttpVerbs.get:
           return await _httpRequestMethods
-              .get(uri: uri, headers: _brandoHeaders)
+              .get(uri: uri, headers: _brandoHeaders, queryParameters: queryParameters)
               .timeout(_defaultTimeOutDuration,
                   onTimeout: () =>
                       throw TimeoutException("message from interactor"));
