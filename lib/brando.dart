@@ -11,7 +11,6 @@ import 'package:dio/dio.dart';
 
 import 'http/clients/dio_http_request_methods_impl.dart';
 
-
 // Headers Key's
 const accessTokenKey = "access_token";
 const String version = "version";
@@ -44,11 +43,11 @@ class Brando {
   };
   late final HttpRequestMethods _httpRequestMethods;
 
-  late final Future<String> _fetchToken;
+  late final Future<Map<String?, String?>> _fetchToken;
+
+  late final Future<bool> _onUnauthorized;
 
   Map get headers => _brandoHeaders;
-
-  set _accessToken(String token) => _brandoHeaders[accessTokenKey] = token;
 
   /// Assistente de requições HTTP autenticadas utilizando [Dio] como `Client`
   /// de requisições HTTP.
@@ -60,9 +59,14 @@ class Brando {
   /// [access_token].
   ///
   /// * [Dio] Cliente HTTP para Dart.
-  Brando(this._dio, {required Future<String> onUnauthorized}) {
+  Brando(
+    this._dio, {
+    required Future<bool> onUnauthorized,
+    required Future<Map<String?, String?>> fetchToken,
+  }) {
     _httpRequestMethods = DioHttpRequestMethodsImpl(_dio);
-    _fetchToken = onUnauthorized;
+    _fetchToken = fetchToken;
+    _onUnauthorized = onUnauthorized;
   }
 
   /// Açúcar sintático para requisições HTTP.
@@ -78,66 +82,108 @@ class Brando {
       _brandoHeaders.addAll(headers);
     }
 
-    log(_brandoHeaders[accessTokenKey]);
+    await _fetchTokenOrThrowException();
 
     return _attempt(
       httpVerbs: httpVerbs,
       uri: uri,
       body: body,
-      headers: headers,
     );
+  }
+
+  Future<void> _fetchTokenOrThrowException() async {
+    final Map<String?, String?> token = await _fetchToken;
+
+    if (_hasFreshToken(token)) {
+      _brandoHeaders[accessTokenKey] = token['access_token'];
+    } else if (_hasAuthenticationError(token)) {
+      throw AuthenticationException(token['auth_error_details'] ??
+          "Nenhum erro foi informado pela aplicação Host.");
+    }
+  }
+
+  bool _hasFreshToken(Map<String?, String?> value) {
+    return value['token_status'] != null && value['token_status'] == "fresh";
+  }
+
+  bool _hasAuthenticationError(Map<String?, String?> value) {
+    return value['token_status'] != null && value['token_status'] == "stale";
+  }
+
+  dynamic _retryOnUnauthorized({
+    required HttpVerbs httpVerbs,
+    required String uri,
+    dynamic body,
+    Map<String, dynamic>? queryParameters,
+    bool retryRequestAttempt = true,
+  }) async {
+    await _onUnauthorized.whenComplete(
+      () async => await _fetchTokenOrThrowException(),
+    );
+    if (retryRequestAttempt) {
+      return await _attempt(
+        httpVerbs: httpVerbs,
+        uri: uri,
+        body: body,
+        queryParameters: queryParameters,
+        retryRequestAttempt: false,
+      );
+    }
   }
 
   Future _attempt({
     required HttpVerbs httpVerbs,
     required String uri,
     dynamic body,
-    Map<String, dynamic>? headers,
     Map<String, dynamic>? queryParameters,
     bool retryRequestAttempt = true,
   }) async {
-    dynamic _retryOnUnauthorized(UnauthorizedException onError) async {
-      _accessToken = await _fetchToken;
-      if (retryRequestAttempt) {
-        return await _attempt(
-          httpVerbs: httpVerbs,
-          uri: uri,
-          body: body,
-          headers: _brandoHeaders,
-          retryRequestAttempt: false,
-        );
-      }
-    }
-
     try {
       switch (httpVerbs) {
         case HttpVerbs.post:
           return await _httpRequestMethods
-              .post(uri: uri, body: body, headers: _brandoHeaders)
+              .post(
+                uri: uri,
+                body: body,
+                headers: _brandoHeaders,
+              )
               .timeout(_defaultTimeOutDuration,
                   onTimeout: () => throw TimeoutException("message"));
         case HttpVerbs.get:
           return await _httpRequestMethods
               .get(
-                  uri: uri,
-                  headers: _brandoHeaders,
-                  queryParameters: queryParameters)
+                uri: uri,
+                headers: _brandoHeaders,
+                queryParameters: queryParameters,
+              )
               .timeout(_defaultTimeOutDuration,
                   onTimeout: () =>
                       throw TimeoutException("message from interactor"));
         case HttpVerbs.put:
           return await _httpRequestMethods.put(
-              uri: uri, headers: _brandoHeaders, body: body);
+            uri: uri,
+            headers: _brandoHeaders,
+            body: body,
+          );
         case HttpVerbs.delete:
           return await _httpRequestMethods.delete(
-              uri: uri, headers: _brandoHeaders);
+            uri: uri,
+            headers: _brandoHeaders,
+          );
         default:
           throw UnimplementedError();
       }
-    } catch (e, s) {
-      if (e is UnauthorizedException) {
-        _retryOnUnauthorized(e);
+    } on DioError catch (e) {
+      if (e.response?.statusCode == HttpStatus.unauthorized) {
+        _retryOnUnauthorized(
+          httpVerbs: httpVerbs,
+          uri: uri,
+          queryParameters: queryParameters,
+          body: body,
+          retryRequestAttempt: retryRequestAttempt,
+        );
       }
+    } catch (e, s) {
       log(e.toString(), stackTrace: s);
       rethrow;
     }
