@@ -55,8 +55,11 @@ class Brando {
   /// Provê açúcar sintático (Syntax Sugar) para utilização de métodos para
   /// requisições HTTP. Verifique [httpRequestMethods].
   ///
-  /// * [onUnauthorized] função que contém implementação do [Pigeon], mensagem que retorna
+  /// * [fetchToken] função que contém implementação do [Pigeon], mensagem que retorna
   /// [access_token].
+  ///
+  /// * [onUnauthorized] função que contém implementação do [Pigeon] para reautenticação
+  /// e atualização do token.
   ///
   /// * [Dio] Cliente HTTP para Dart.
   Brando(
