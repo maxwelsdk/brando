@@ -40,12 +40,15 @@ class Brando {
     accessTokenKey: noTokenValue,
     HttpHeaders.contentTypeHeader: applicationJson,
     HttpHeaders.acceptHeader: applicationJson,
+    'device_type': 0,
+    'version': 0,
   };
+
   late final HttpRequestMethods _httpRequestMethods;
 
-  late final Future<Map<String?, String?>> _fetchToken;
-
-  late final Future<bool> _onUnauthorized;
+  /// Evite utilizar uma referência future do pigeon, deixe que o evento invoque novamente o método para busca do token
+  /// essa abordagem evita que um Future entregue um valor já computado.
+  late final Future<String> Function(String) _tokenFuture;
 
   Map get headers => _brandoHeaders;
 
@@ -55,21 +58,40 @@ class Brando {
   /// Provê açúcar sintático (Syntax Sugar) para utilização de métodos para
   /// requisições HTTP. Verifique [httpRequestMethods].
   ///
-  /// * [fetchToken] função que contém implementação do [Pigeon], mensagem que retorna
-  /// [access_token].
+  /// * [tokenFuture] Future que contém implementação do [Pigeon] para recuperação de token.
+  /// e.g.:
   ///
-  /// * [onUnauthorized] função que contém implementação do [Pigeon] para reautenticação
-  /// e atualização do token.
+  /// ```dart
+  /// // Exemplo de implementação
+  /// Future<String> getTokenByEvent(String event) async {
+  ///     if (event == "refresh") {
+  ///      return await TokenMessages().fetchToken();
+  ///     }
+  ///     if (event == "fetch") {
+  ///       return await TokenMessages().refreshAuthentication();
+  ///     }
+  ///     return "";
+  ///   }
+  ///
+  /// // Exemplo de uso
+  /// @override
+  /// Widget build(BuildContext context) {
+  /// final _services = Services(
+  ///       Brando(
+  ///         Dio(),
+  ///         tokenFuture: getTokenByEvent,
+  ///       ),
+  ///     );
+  /// }
+  /// ```
   ///
   /// * [Dio] Cliente HTTP para Dart.
   Brando(
     this._dio, {
-    required Future<bool> onUnauthorized,
-    required Future<Map<String?, String?>> fetchToken,
+    required Future<String> Function(String) tokenFuture,
   }) {
     _httpRequestMethods = DioHttpRequestMethodsImpl(_dio);
-    _fetchToken = fetchToken;
-    _onUnauthorized = onUnauthorized;
+    _tokenFuture = tokenFuture;
   }
 
   /// Açúcar sintático para requisições HTTP.
@@ -85,44 +107,36 @@ class Brando {
       _brandoHeaders.addAll(headers);
     }
 
-    await _fetchTokenOrThrowException();
+    if (_brandoHeaders[accessTokenKey] == noTokenValue) {
+      await _tokenFuture.call('fetch').then((value) => _updateToken(value));
+    }
 
-    return _attempt(
+    return await _attempt(
       httpVerbs: httpVerbs,
       uri: uri,
       body: body,
     );
   }
 
-  Future<void> _fetchTokenOrThrowException() async {
-    final Map<String?, String?> token = await _fetchToken;
-
-    if (_hasFreshToken(token)) {
-      _brandoHeaders[accessTokenKey] = token['access_token'];
-    } else if (_hasAuthenticationError(token)) {
-      throw AuthenticationException(token['auth_error_details'] ??
-          "Nenhum erro foi informado pela aplicação Host.");
+  void _updateToken(String? token) {
+    if (token != null && token.isNotEmpty) {
+      _brandoHeaders[accessTokenKey] = token;
+    } else if (token!.contains("error")) {
+      throw AuthenticationException(token);
     }
   }
 
-  bool _hasFreshToken(Map<String?, String?> value) {
-    return value['token_status'] != null && value['token_status'] == "fresh";
-  }
-
-  bool _hasAuthenticationError(Map<String?, String?> value) {
-    return value['token_status'] != null && value['token_status'] == "stale";
-  }
-
-  dynamic _retryOnUnauthorized({
+  Future<dynamic> _retryOnUnauthorized({
     required HttpVerbs httpVerbs,
     required String uri,
     dynamic body,
     Map<String, dynamic>? queryParameters,
     bool retryRequestAttempt = true,
   }) async {
-    await _onUnauthorized.whenComplete(
-      () async => await _fetchTokenOrThrowException(),
-    );
+    _brandoHeaders[accessTokenKey] = noTokenValue;
+
+    await _tokenFuture.call('refresh').then((state) => _updateToken(state));
+
     if (retryRequestAttempt) {
       return await _attempt(
         httpVerbs: httpVerbs,
