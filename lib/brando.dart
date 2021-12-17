@@ -28,8 +28,9 @@ const _defaultTimeOutDuration = Duration(seconds: 120);
 /// Esta classe espera um instância do [Dio]. [Brando] então realiza requisições HTTP em Dart.
 ///
 /// [Brando] realizará uma nova requisição automáticamente em caso de falha
-/// com [UnauthorizedException], na primeira falha é executado o [onUnauthorized]
-/// para solicitação de novo [access_token] e então é feita a requisição adicional.
+/// com [DioError] 401 `unauthorized`, na primeira falha é executado o [tokenFuture] com
+/// evento de 'refresh'.
+///
 /// Caso exceção persistir a mesma será lançada.
 ///
 /// Brando necessita um `access_token`, válido e autenticado.
@@ -200,6 +201,7 @@ class Brando {
           retryRequestAttempt: retryRequestAttempt,
         );
       }
+      rethrow;
     } catch (e, s) {
       log(e.toString(), stackTrace: s);
       rethrow;
