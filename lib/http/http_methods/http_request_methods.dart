@@ -1,7 +1,10 @@
 /// Classe base para métodos HTTP.
 abstract class HttpRequestMethods {
-  Future post(
-      {required String uri, Map<String, dynamic>? headers, dynamic body});
+  Future post({
+    required String uri,
+    Map<String, dynamic>? headers,
+    dynamic body,
+  });
 
   Future get({
     required String uri,

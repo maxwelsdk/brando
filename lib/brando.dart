@@ -9,8 +9,6 @@ import 'package:brando/http/exceptions/exceptions.dart';
 import 'package:brando/http/http_methods/http_request_methods.dart';
 import 'package:dio/dio.dart';
 
-import 'http/clients/dio_http_request_methods_impl.dart';
-
 // Headers Key's
 const accessTokenKey = "access_token";
 const String version = "version";
@@ -22,6 +20,10 @@ const String applicationJson = "application/json";
 
 // Default values
 const _defaultTimeOutDuration = Duration(seconds: 120);
+
+// Events
+const String _refreshEvent = "refresh";
+const String _fetchEvent = "fetch";
 
 /// [Brando] é um assistente de requisições autenticadas para um módulo Flutter.
 ///
@@ -36,7 +38,6 @@ const _defaultTimeOutDuration = Duration(seconds: 120);
 /// Brando necessita um `access_token`, válido e autenticado.
 /// Este token é fornecido pela aplicação anfitriã ou HostApp para o módulo.
 class Brando {
-  final Dio _dio;
   final Map<String, dynamic> _brandoHeaders = {
     accessTokenKey: noTokenValue,
     HttpHeaders.contentTypeHeader: applicationJson,
@@ -88,10 +89,9 @@ class Brando {
   ///
   /// * [Dio] Cliente HTTP para Dart.
   Brando(
-    this._dio, {
+    this._httpRequestMethods, {
     required Future<String> Function(String) tokenFuture,
   }) {
-    _httpRequestMethods = DioHttpRequestMethodsImpl(_dio);
     _tokenFuture = tokenFuture;
   }
 
@@ -106,10 +106,12 @@ class Brando {
   }) async {
     if (headers != null) {
       _brandoHeaders.addAll(headers);
-    }
-
-    if (_brandoHeaders[accessTokenKey] == noTokenValue) {
-      await _tokenFuture.call('fetch').then((value) => _updateToken(value));
+      if (headers[accessTokenKey] == null ||
+          headers[accessTokenKey].isNotEmpty) {
+        await _tokenFuture
+            .call(_fetchEvent)
+            .then((value) => _updateToken(value));
+      }
     }
 
     return await _attempt(
@@ -119,12 +121,11 @@ class Brando {
     );
   }
 
-  void _updateToken(String? token) {
-    if (token != null && token.isNotEmpty) {
-      _brandoHeaders[accessTokenKey] = token;
-    } else if (token!.contains("error")) {
+  void _updateToken(String token) {
+    if (token.contains("error")) {
       throw AuthenticationException(token);
     }
+    _brandoHeaders[accessTokenKey] = token;
   }
 
   Future<dynamic> _retryOnUnauthorized({
@@ -136,7 +137,7 @@ class Brando {
   }) async {
     _brandoHeaders[accessTokenKey] = noTokenValue;
 
-    await _tokenFuture.call('refresh').then((state) => _updateToken(state));
+    await _tokenFuture.call(_refreshEvent).then((state) => _updateToken(state));
 
     if (retryRequestAttempt) {
       return await _attempt(
