@@ -52,7 +52,11 @@ class Brando {
   /// essa abordagem evita que um Future entregue um valor já computado.
   late final Future<String> Function(String) _tokenFuture;
 
-  Map get headers => _brandoHeaders;
+  Map<String, dynamic> get headers => _brandoHeaders;
+
+  set headers(Map<String, dynamic> header) {
+    _brandoHeaders.addAll(header);
+  }
 
   /// Assistente de requições HTTP autenticadas utilizando [Dio] como `Client`
   /// de requisições HTTP.
@@ -97,7 +101,7 @@ class Brando {
 
   /// Açúcar sintático para requisições HTTP.
   /// * [HttpVerbs] Verbos de métodos de requisição HTTP.
-  Future request({
+  Future  request({
     required HttpVerbs httpVerbs,
     required String uri,
     dynamic body,
@@ -106,12 +110,12 @@ class Brando {
   }) async {
     if (headers != null) {
       _brandoHeaders.addAll(headers);
-      if (headers[accessTokenKey] == null ||
-          headers[accessTokenKey].isNotEmpty) {
-        await _tokenFuture
-            .call(_fetchEvent)
-            .then((value) => _updateToken(value));
-      }
+    }
+
+    if (_brandoHeaders[accessTokenKey] == null ||
+        _brandoHeaders[accessTokenKey].isEmpty ||
+        _brandoHeaders[accessTokenKey] == noTokenValue) {
+      await _tokenFuture.call(_fetchEvent).then((value) => _updateToken(value));
     }
 
     return await _attempt(
@@ -125,7 +129,7 @@ class Brando {
     if (token.contains("error")) {
       throw AuthenticationException(token);
     }
-    _brandoHeaders[accessTokenKey] = token;
+    headers = {accessTokenKey: token};
   }
 
   Future<dynamic> _retryOnUnauthorized({
@@ -135,8 +139,6 @@ class Brando {
     Map<String, dynamic>? queryParameters,
     bool retryRequestAttempt = true,
   }) async {
-    _brandoHeaders[accessTokenKey] = noTokenValue;
-
     await _tokenFuture.call(_refreshEvent).then((state) => _updateToken(state));
 
     if (retryRequestAttempt) {
